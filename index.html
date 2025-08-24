@@ -70,7 +70,6 @@
       <div id="message-box" class="hidden bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 p-4 rounded-xl shadow-lg transition-all duration-300"></div>
     </div>
     <div id="loading-spinner" class="text-center text-blue-500 hidden">Loading...</div>
-    <div class="text-center text-sm text-gray-400">User ID: <span id="user-id">Loading...</span></div>
 
     <!-- Add Words and View List Section -->
     <main id="add-mode" class="space-y-8">
@@ -88,11 +87,16 @@
       </section>
 
       <section class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl space-y-4">
-        <div class="flex justify-between items-center">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
           <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Your Words (<span id="word-count">0</span>)</h2>
-          <button id="start-game-btn" class="hidden flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
-            Start Flashcards
-          </button>
+          <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <button id="download-list-btn" class="flex-grow px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+              Download List
+            </button>
+            <button id="start-game-btn" class="flex-grow hidden px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+              Start Flashcards
+            </button>
+          </div>
         </div>
         <div id="words-list" class="space-y-4">
           <!-- Words will be dynamically inserted here -->
@@ -144,27 +148,11 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, addDoc, collection, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    // --- Global Variables provided by the Canvas Environment ---
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-    // Firebase service instances
-    let app, auth, db;
-    let userId;
+    // An in-memory array to store the vocabulary words.
+    let vocabList = [];
+    let currentCardIndex = 0;
+    let isCardFlipped = false;
     let isSpeaking = false;
-
-    // A single object to hold the entire game state.
-    const gameState = {
-        words: [],
-        currentCardIndex: 0,
-        isFlipped: false,
-        isAuthReady: false
-    };
 
     // --- DOM Elements ---
     const addModeSection = document.getElementById('add-mode');
@@ -175,10 +163,9 @@
     const wordCountSpan = document.getElementById('word-count');
     const wordsListDiv = document.getElementById('words-list');
     const startGameBtn = document.getElementById('start-game-btn');
+    const downloadListBtn = document.getElementById('download-list-btn');
     const backToListBtn = document.getElementById('back-to-list-btn');
     const messageBox = document.getElementById('message-box');
-    const loadingSpinner = document.getElementById('loading-spinner');
-    const userIdSpan = document.getElementById('user-id');
     const flashcardContent = document.getElementById('flashcard-content');
     const flashcardWord = document.getElementById('flashcard-word');
     const flashcardDefinition = document.getElementById('flashcard-definition');
@@ -293,16 +280,28 @@
       }
     };
 
+    // --- Local Storage Functions ---
+    const saveVocabList = () => {
+        localStorage.setItem('vocabList', JSON.stringify(vocabList));
+    };
+
+    const loadVocabList = () => {
+        const storedList = localStorage.getItem('vocabList');
+        if (storedList) {
+            vocabList = JSON.parse(storedList);
+        }
+    };
+
     // --- Render Functions ---
     const render = () => {
-        // Render the UI based on the current game state
+        // Render the UI based on the current state
         wordsListDiv.innerHTML = '';
-        wordCountSpan.textContent = gameState.words.length;
-        if (gameState.words.length === 0) {
+        wordCountSpan.textContent = vocabList.length;
+        if (vocabList.length === 0) {
             wordsListDiv.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400">Your vocabulary list is empty. Add some words above!</p>';
             startGameBtn.classList.add('hidden');
         } else {
-            gameState.words.forEach(word => {
+            vocabList.forEach(word => {
                 const li = document.createElement('li');
                 li.className = 'flex items-center justify-between p-4 bg-gray-100 dark:bg-gray-900 rounded-xl shadow-md';
                 li.innerHTML = `
@@ -325,7 +324,7 @@
             return;
         }
 
-        const currentWord = gameState.words[gameState.currentCardIndex];
+        const currentWord = vocabList[currentCardIndex];
         if (currentWord) {
             flashcardWord.textContent = currentWord.word;
             flashcardDefinition.textContent = currentWord.definition;
@@ -334,81 +333,24 @@
              flashcardDefinition.textContent = 'No words added.';
         }
 
-        if (gameState.isFlipped) {
+        if (isCardFlipped) {
             flashcardContent.classList.add('card-flipped');
         } else {
             flashcardContent.classList.remove('card-flipped');
         }
 
-        cardIndexSpan.textContent = gameState.words.length > 0 ? gameState.currentCardIndex + 1 : 0;
-        cardTotalSpan.textContent = gameState.words.length;
+        cardIndexSpan.textContent = vocabList.length > 0 ? currentCardIndex + 1 : 0;
+        cardTotalSpan.textContent = vocabList.length;
     };
-
-    // --- Firebase Initialization and Data Handling ---
-    const initFirebaseAndLoadData = async () => {
-        loadingSpinner.classList.remove('hidden');
-
-        // Check if firebaseConfig is provided by the environment
-        if (Object.keys(firebaseConfig).length === 0) {
-            showMessage("Error: Firebase configuration not found. This app requires a database connection to save data.", true);
-            loadingSpinner.classList.add('hidden');
-            return; // Stop execution if config is missing
-        }
-
-        try {
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-
-            if (initialAuthToken) {
-                await signInWithCustomToken(auth, initialAuthToken);
-            } else {
-                await signInAnonymously(auth);
-            }
-
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    userId = user.uid;
-                    userIdSpan.textContent = userId;
-                    gameState.isAuthReady = true;
-
-                    // Set up the real-time listener for the user's private collection
-                    const userVocabCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/vocabWords`);
-                    onSnapshot(userVocabCollectionRef, (snapshot) => {
-                        gameState.words = snapshot.docs.map(doc => ({
-                            id: doc.id,
-                            ...doc.data()
-                        }));
-                        render();
-                    }, (error) => {
-                        console.error("Firestore Snapshot Error:", error);
-                        showMessage("Error loading vocabulary. Check your Firebase security rules.", true);
-                    });
-
-                } else {
-                    console.log("User is signed out.");
-                    userIdSpan.textContent = "Not authenticated";
-                    gameState.isAuthReady = false;
-                }
-                loadingSpinner.classList.add('hidden');
-            });
-        } catch (error) {
-            console.error("Firebase Initialization Error:", error);
-            showMessage("Error: Failed to initialize Firebase. Please check the configuration and try again.", true);
-            loadingSpinner.classList.add('hidden');
-        }
-    };
-    
-    window.onload = initFirebaseAndLoadData;
 
     // --- Event Handlers ---
-    const addWord = async (e) => {
+    const addWord = (e) => {
       e.preventDefault();
       const newWord = newWordInput.value.trim();
       const newDefinition = newDefinitionInput.value.trim();
 
-      if (!db || !newWord || !newDefinition || !gameState.isAuthReady) {
-        showMessage("Please wait for the app to load and fill out both fields.");
+      if (!newWord || !newDefinition) {
+        showMessage("Please fill out both fields.");
         return;
       }
       
@@ -417,72 +359,91 @@
         return;
       }
 
-      try {
-        await addDoc(collection(db, `artifacts/${appId}/users/${userId}/vocabWords`), {
-          word: newWord,
-          definition: newDefinition,
-          createdAt: new Date().toISOString()
-        });
-        newWordInput.value = '';
-        newDefinitionInput.value = '';
-      } catch (error) {
-        console.error("Error adding word:", error);
-        showMessage("Error adding word. Check your Firebase security rules.", true);
-      }
+      const id = Date.now().toString(); // Use a simple timestamp as an ID
+      vocabList.push({ id, word: newWord, definition: newDefinition });
+      newWordInput.value = '';
+      newDefinitionInput.value = '';
+      saveVocabList(); // Save the list after adding
+      render();
     };
 
-    const deleteWord = async (wordId) => {
-      if (!db || !gameState.isAuthReady) return;
-      try {
-        const docRef = doc(db, `artifacts/${appId}/users/${userId}/vocabWords`, wordId);
-        await deleteDoc(docRef);
-      } catch (error) {
-        console.error("Error deleting word:", error);
-        showMessage("Error deleting word. Check your Firebase security rules.", true);
+    const deleteWord = (wordId) => {
+      const index = vocabList.findIndex(word => word.id === wordId);
+      if (index !== -1) {
+        vocabList.splice(index, 1);
+        saveVocabList(); // Save the list after deleting
+        render();
       }
     };
 
     const startGame = () => {
-      if (gameState.words.length === 0) {
+      if (vocabList.length === 0) {
         showMessage("Please add at least one word to start!");
         return;
       }
       addModeSection.classList.add('hidden');
       flashcardModeSection.classList.remove('hidden');
-      gameState.currentCardIndex = 0;
-      gameState.isFlipped = false;
+      currentCardIndex = 0;
+      isCardFlipped = false;
       render();
     };
 
     const flipCard = () => {
-        if (gameState.words.length === 0) return;
-        gameState.isFlipped = !gameState.isFlipped;
+        if (vocabList.length === 0) return;
+        isCardFlipped = !isCardFlipped;
         render();
     };
 
     const nextCard = () => {
-        gameState.currentCardIndex = (gameState.currentCardIndex + 1) % gameState.words.length;
-        gameState.isFlipped = false;
+        currentCardIndex = (currentCardIndex + 1) % vocabList.length;
+        isCardFlipped = false;
         render();
     };
 
     const prevCard = () => {
-        gameState.currentCardIndex = (gameState.currentCardIndex - 1 + gameState.words.length) % gameState.words.length;
-        gameState.isFlipped = false;
+        currentCardIndex = (currentCardIndex - 1 + vocabList.length) % vocabList.length;
+        isCardFlipped = false;
         render();
     };
 
     const backToList = () => {
       addModeSection.classList.remove('hidden');
       flashcardModeSection.classList.add('hidden');
-      gameState.currentCardIndex = 0;
-      gameState.isFlipped = false;
+      currentCardIndex = 0;
+      isCardFlipped = false;
       render();
+    };
+
+    const downloadVocabList = () => {
+        if (vocabList.length === 0) {
+            showMessage("Your list is empty. Nothing to download!", true);
+            return;
+        }
+
+        // Convert the vocab list to a JSON string
+        const jsonString = JSON.stringify(vocabList, null, 2);
+        
+        // Create a Blob from the JSON string
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        
+        // Create a temporary link element
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'vocab-list.json';
+        
+        // Append link to body, click it, and remove it
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url); // Clean up the URL object
+        showMessage("Vocabulary list downloaded successfully!", false);
     };
 
     // --- Attach Event Listeners ---
     addWordForm.addEventListener('submit', addWord);
     startGameBtn.addEventListener('click', startGame);
+    downloadListBtn.addEventListener('click', downloadVocabList);
     backToListBtn.addEventListener('click', backToList);
     flashcardContent.addEventListener('click', flipCard);
     nextCardBtn.addEventListener('click', nextCard);
@@ -491,7 +452,7 @@
     // Audio button event listeners with stopPropagation
     wordSpeakerBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const currentWord = gameState.words[gameState.currentCardIndex];
+      const currentWord = vocabList[currentCardIndex];
       if (currentWord) {
         playCardAudio(currentWord.word);
       }
@@ -499,11 +460,17 @@
 
     defSpeakerBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const currentWord = gameState.words[gameState.currentCardIndex];
+      const currentWord = vocabList[currentCardIndex];
       if (currentWord) {
         playCardAudio(currentWord.definition);
       }
     });
+    
+    // Load the list from local storage and render on page load
+    window.onload = () => {
+        loadVocabList();
+        render();
+    };
   </script>
 </body>
 </html>
