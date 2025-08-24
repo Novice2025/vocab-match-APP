@@ -89,27 +89,23 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, addDoc, collection, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, addDoc, collection, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // --- IMPORTANT: Paste your Firebase config here to enable data persistence on GitHub Pages. ---
-    // You can find this in your Firebase project settings. It will look like this:
-    // const firebaseConfig = {
-    //   apiKey: "...",
-    //   authDomain: "...",
-    //   projectId: "...",
-    //   storageBucket: "...",
-    //   messagingSenderId: "...",
-    //   appId: "..."
-    // };
-    // DO NOT ADD YOUR API KEY IF YOU ARE JUST USING IT INSIDE THE CANVAS.
-    // Replace the empty object below with your actual config.
-    const firebaseConfig = {};
+    const firebaseConfig = {
+      apiKey: "AIzaSyAXqOfd0OdNelwSVfMbXvvV8Bc3BTRuG_Q",
+      authDomain: "memorise-app-23988.firebaseapp.com",
+      projectId: "memorise-app-23988",
+      storageBucket: "memorise-app-23988.firebasestorage.app",
+      messagingSenderId: "119652786860",
+      appId: "1:119652786860:web:bb4571222c501b5856b509",
+      measurementId: "G-NGSGCRFSDN"
+    };
 
     // Global variables from the Canvas environment
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
+    
     // Firebase service instances
     let app, auth, db;
     let userId;
@@ -261,13 +257,10 @@
         app = initializeApp(effectiveFirebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
-
-        // Authenticate the user
-        if (initialAuthToken) {
-          await signInWithCustomToken(auth, initialAuthToken);
-        } else {
-          await signInAnonymously(auth);
-        }
+        
+        // Use anonymous sign-in, as the custom auth token from the Canvas environment
+        // is not valid for a user-provided Firebase project.
+        await signInAnonymously(auth);
 
         onAuthStateChanged(auth, (user) => {
           if (user) {
