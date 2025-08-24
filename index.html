@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vocab-Match</title>
+  <title>Vocab-Flashcards</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
@@ -28,11 +28,11 @@
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 min-h-screen antialiased p-4 sm:p-6 lg:p-10">
   <div class="max-w-4xl mx-auto space-y-8">
     <header class="text-center space-y-2">
-      <h1 class="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600">Vocab-Match</h1>
-      <p class="text-xl text-gray-600 dark:text-gray-400">Your personalized vocabulary game!</p>
+      <h1 class="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600">Vocab-Flashcards</h1>
+      <p class="text-xl text-gray-600 dark:text-gray-400">Your personalized vocabulary flashcards!</p>
     </header>
 
-    <!-- UI for user ID and message box -->
+    <!-- UI for message box -->
     <div id="status-container" class="space-y-4">
       <div id="message-box" class="hidden bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 p-4 rounded-xl shadow-lg transition-all duration-300"></div>
     </div>
@@ -41,7 +41,7 @@
     <main id="add-mode" class="space-y-8">
       <section class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl space-y-4">
         <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Add New Words</h2>
-        <p class="text-gray-600 dark:text-gray-400">Enter a word and its definition to build your vocabulary list. You need at least two pairs to play!</p>
+        <p class="text-gray-600 dark:text-gray-400">Enter a word and its definition to build your vocabulary list.</p>
         <form id="add-word-form" class="space-y-4">
           <input id="new-word-input" type="text" placeholder="Enter a new word..." class="w-full p-3 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 dark:text-gray-200" required />
           <input id="new-definition-input" type="text" placeholder="Enter the definition..." class="w-full p-3 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 dark:text-gray-200" required />
@@ -56,7 +56,7 @@
         <div class="flex justify-between items-center">
           <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Your Words (<span id="word-count">0</span>)</h2>
           <button id="start-game-btn" class="hidden flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
-            Start Game
+            Start Flashcards
           </button>
         </div>
         <div id="words-list" class="space-y-4">
@@ -65,22 +65,44 @@
       </section>
     </main>
 
-    <!-- Game Play Section -->
-    <main id="play-mode" class="space-y-8 hidden">
-      <div class="flex flex-col items-center justify-center space-y-4">
+    <!-- Flashcard Section -->
+    <main id="flashcard-mode" class="space-y-8 hidden">
+      <div class="flex flex-col items-center justify-center space-y-8">
         <div class="flex items-center justify-between w-full max-w-lg p-4 rounded-xl shadow-lg bg-white dark:bg-gray-800">
-          <div class="text-xl font-bold text-gray-800 dark:text-gray-100">Score: <span id="score">0</span></div>
           <button id="back-to-list-btn" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
             Back to List
           </button>
+          <div class="text-xl font-bold text-gray-800 dark:text-gray-100">Card: <span id="card-index">0</span> / <span id="card-total">0</span></div>
         </div>
 
-        <div id="game-win-message" class="hidden bg-green-500 text-white font-bold text-2xl p-6 rounded-2xl shadow-xl text-center animate-bounce">
-          You've matched all the pairs! Great job!
+        <div id="flashcard-container" class="card-container relative w-full max-w-lg aspect-video p-4 flex items-center justify-center text-center cursor-pointer rounded-xl shadow-lg bg-white dark:bg-gray-800">
+          <div id="flashcard-content" class="absolute inset-0 card-flip flex items-center justify-center text-center">
+            <div id="flashcard-word" class="absolute inset-0 backface-hidden rounded-xl p-4 flex items-center justify-center text-2xl font-bold">
+              <span class="text-xl select-none">No card selected</span>
+              <button class="absolute bottom-4 right-4 p-2 rounded-full speaker-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 text-gray-500 hover:text-blue-500 transition-colors">
+                  <path d="M15.5 22c1.78 0 3.5-2.07 3.5-4.11A10.5 10.5 0 0 0 16 2.01"/><path d="M8 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h4l5 4V2l-5 4z"/><line x1="16" x2="16" y1="2" y2="17"/>
+                </svg>
+              </button>
+            </div>
+            <div id="flashcard-definition" class="absolute inset-0 rotate-y-180 backface-hidden rounded-xl p-4 flex items-center justify-center text-center text-lg font-medium">
+              <p>No card selected</p>
+              <button class="absolute bottom-4 right-4 p-2 rounded-full speaker-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 text-gray-500 hover:text-blue-500 transition-colors">
+                  <path d="M15.5 22c1.78 0 3.5-2.07 3.5-4.11A10.5 10.5 0 0 0 16 2.01"/><path d="M8 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h4l5 4V2l-5 4z"/><line x1="16" x2="16" y1="2" y2="17"/>
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div id="game-cards-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 w-full max-w-4xl">
-          <!-- Game cards will be dynamically inserted here -->
+        <div class="flex space-x-4">
+          <button id="prev-card-btn" class="px-6 py-3 bg-gradient-to-r from-gray-400 to-gray-500 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+            Previous
+          </button>
+          <button id="next-card-btn" class="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+            Next
+          </button>
         </div>
       </div>
     </main>
@@ -106,29 +128,31 @@
     let app, auth, db;
     let isSpeaking = false;
 
-    // A single object to hold the entire game state. This makes logic more robust.
+    // A single object to hold the entire game state.
     const gameState = {
         words: [],
-        gameCards: [],
-        flippedCards: [],
-        score: 0,
-        isLocked: false,
+        currentCardIndex: 0,
+        isFlipped: false
     };
 
     // --- DOM Elements ---
     const addModeSection = document.getElementById('add-mode');
-    const playModeSection = document.getElementById('play-mode');
+    const flashcardModeSection = document.getElementById('flashcard-mode');
     const addWordForm = document.getElementById('add-word-form');
     const newWordInput = document.getElementById('new-word-input');
     const newDefinitionInput = document.getElementById('new-definition-input');
     const wordCountSpan = document.getElementById('word-count');
     const wordsListDiv = document.getElementById('words-list');
     const startGameBtn = document.getElementById('start-game-btn');
-    const scoreSpan = document.getElementById('score');
-    const gameCardsContainer = document.getElementById('game-cards-container');
     const backToListBtn = document.getElementById('back-to-list-btn');
-    const gameWinMessage = document.getElementById('game-win-message');
     const messageBox = document.getElementById('message-box');
+    const flashcardContainer = document.getElementById('flashcard-content');
+    const flashcardWord = document.getElementById('flashcard-word');
+    const flashcardDefinition = document.getElementById('flashcard-definition');
+    const cardIndexSpan = document.getElementById('card-index');
+    const cardTotalSpan = document.getElementById('card-total');
+    const prevCardBtn = document.getElementById('prev-card-btn');
+    const nextCardBtn = document.getElementById('next-card-btn');
 
     // --- Helper Functions ---
     // Displays a temporary message in the UI
@@ -141,15 +165,6 @@
       setTimeout(() => {
         messageBox.classList.add('hidden');
       }, 3000);
-    };
-
-    // Shuffles an array in place using the Fisher-Yates algorithm.
-    const shuffleArray = (array) => {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-      }
-      return array;
     };
 
     // Helper function to convert base64 PCM data to a WAV Blob
@@ -267,51 +282,40 @@
                 li.querySelector('.delete-btn').addEventListener('click', (e) => deleteWord(e.currentTarget.dataset.id));
                 wordsListDiv.appendChild(li);
             });
-            if (gameState.words.length >= 2) {
-                startGameBtn.classList.remove('hidden');
-            } else {
-                startGameBtn.classList.add('hidden');
-            }
+            startGameBtn.classList.remove('hidden');
         }
 
-        scoreSpan.textContent = gameState.score;
-        gameCardsContainer.innerHTML = '';
-        if (playModeSection.classList.contains('hidden')) {
+        // Update flashcard UI
+        if (flashcardModeSection.classList.contains('hidden')) {
             return;
         }
 
-        gameState.gameCards.forEach(card => {
-            const cardDiv = document.createElement('div');
-            const isFaceUp = card.isFlipped || card.isMatched;
-
-            cardDiv.className = `card-container relative w-full aspect-square bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 p-4 flex items-center justify-center text-center cursor-pointer ${isFaceUp ? 'card-flipped' : ''}`;
-            cardDiv.innerHTML = `
-              <div class="absolute inset-0 backface-hidden bg-gray-300 dark:bg-gray-600 rounded-xl p-4 flex items-center justify-center text-xl font-bold">
-                <span class="text-xl select-none">?</span>
-              </div>
-              <div class="absolute inset-0 rotate-y-180 backface-hidden rounded-xl p-4 flex items-center justify-center text-center text-base font-medium">
-                <p>${card.value}</p>
-                <button class="absolute bottom-2 right-2 p-2 rounded-full speaker-btn">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 text-gray-500 hover:text-blue-500 transition-colors">
-                    <path d="M15.5 22c1.78 0 3.5-2.07 3.5-4.11A10.5 10.5 0 0 0 16 2.01"/><path d="M8 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h4l5 4V2l-5 4z"/><line x1="16" x2="16" y1="2" y2="17"/>
-                  </svg>
-                </button>
-              </div>
-            `;
-
-            cardDiv.addEventListener('click', () => handleCardClick(card));
-            cardDiv.querySelector('.speaker-btn').addEventListener('click', (e) => {
+        const currentWord = gameState.words[gameState.currentCardIndex];
+        if (currentWord) {
+            flashcardWord.querySelector('span').textContent = currentWord.word;
+            flashcardWord.querySelector('.speaker-btn').onclick = (e) => {
               e.stopPropagation();
-              playCardAudio(card.value);
-            });
-            gameCardsContainer.appendChild(cardDiv);
-        });
+              playCardAudio(currentWord.word);
+            };
 
-        if (gameState.gameCards.length > 0 && gameState.gameCards.every(card => card.isMatched)) {
-            gameWinMessage.classList.remove('hidden');
+            flashcardDefinition.querySelector('p').textContent = currentWord.definition;
+            flashcardDefinition.querySelector('.speaker-btn').onclick = (e) => {
+              e.stopPropagation();
+              playCardAudio(currentWord.definition);
+            };
         } else {
-            gameWinMessage.classList.add('hidden');
+             flashcardWord.querySelector('span').textContent = 'No words added.';
+             flashcardDefinition.querySelector('p').textContent = 'No words added.';
         }
+
+        if (gameState.isFlipped) {
+            flashcardContainer.classList.add('card-flipped');
+        } else {
+            flashcardContainer.classList.remove('card-flipped');
+        }
+
+        cardIndexSpan.textContent = gameState.words.length > 0 ? gameState.currentCardIndex + 1 : 0;
+        cardTotalSpan.textContent = gameState.words.length;
     };
 
     // --- Firebase Initialization and Data Handling ---
@@ -373,78 +377,40 @@
     };
 
     const startGame = () => {
-      if (gameState.words.length < 2) {
-        showMessage("You need at least two words to start the game!");
+      if (gameState.words.length === 0) {
+        showMessage("Please add at least one word to start!");
         return;
       }
       addModeSection.classList.add('hidden');
-      playModeSection.classList.remove('hidden');
-
-      gameState.gameCards = gameState.words.flatMap(w => [
-        { id: `${w.id}-word`, value: w.word, type: 'word', pairId: w.id, isFlipped: false, isMatched: false },
-        { id: `${w.id}-def`, value: w.definition, type: 'definition', pairId: w.id, isFlipped: false, isMatched: false }
-      ]);
-      shuffleArray(gameState.gameCards);
-      gameState.flippedCards = [];
-      gameState.score = 0;
-      gameState.isLocked = false;
+      flashcardModeSection.classList.remove('hidden');
+      gameState.currentCardIndex = 0;
+      gameState.isFlipped = false;
       render();
     };
 
-    const handleCardClick = (card) => {
-      if (gameState.isLocked || isSpeaking || card.isFlipped || card.isMatched) {
-        return;
-      }
+    const flipCard = () => {
+        if (gameState.words.length === 0) return;
+        gameState.isFlipped = !gameState.isFlipped;
+        render();
+    };
 
-      playCardAudio(card.value);
+    const nextCard = () => {
+        gameState.currentCardIndex = (gameState.currentCardIndex + 1) % gameState.words.length;
+        gameState.isFlipped = false;
+        render();
+    };
 
-      // Flip the card and add to flipped list
-      const clickedCardIndex = gameState.gameCards.findIndex(c => c.id === card.id);
-      gameState.gameCards[clickedCardIndex].isFlipped = true;
-      gameState.flippedCards.push(card);
-
-      render();
-
-      if (gameState.flippedCards.length === 2) {
-        gameState.isLocked = true; // Disable clicks
-        const [card1, card2] = gameState.flippedCards;
-        if (card1.pairId === card2.pairId) {
-          gameState.score++;
-          // Mark cards as matched
-          const matchedCard1Index = gameState.gameCards.findIndex(c => c.id === card1.id);
-          const matchedCard2Index = gameState.gameCards.findIndex(c => c.id === card2.id);
-          gameState.gameCards[matchedCard1Index].isMatched = true;
-          gameState.gameCards[matched2Index].isMatched = true;
-
-          // Clear flipped cards and re-enable clicks
-          setTimeout(() => {
-              gameState.flippedCards = [];
-              gameState.isLocked = false;
-              render();
-          }, 500);
-        } else {
-          // Flip cards back over
-          setTimeout(() => {
-            const flippedCard1Index = gameState.gameCards.findIndex(c => c.id === card1.id);
-            const flippedCard2Index = gameState.gameCards.findIndex(c => c.id === card2.id);
-            gameState.gameCards[flippedCard1Index].isFlipped = false;
-            gameState.gameCards[flippedCard2Index].isFlipped = false;
-            gameState.flippedCards = [];
-            gameState.isLocked = false;
-            render();
-          }, 1000);
-        }
-      }
+    const prevCard = () => {
+        gameState.currentCardIndex = (gameState.currentCardIndex - 1 + gameState.words.length) % gameState.words.length;
+        gameState.isFlipped = false;
+        render();
     };
 
     const backToList = () => {
-      // Reset all game state variables to their initial values
-      gameState.gameCards = [];
-      gameState.flippedCards = [];
-      gameState.score = 0;
-      gameState.isLocked = false;
       addModeSection.classList.remove('hidden');
-      playModeSection.classList.add('hidden');
+      flashcardModeSection.classList.add('hidden');
+      gameState.currentCardIndex = 0;
+      gameState.isFlipped = false;
       render();
     };
 
@@ -452,6 +418,9 @@
     addWordForm.addEventListener('submit', addWord);
     startGameBtn.addEventListener('click', startGame);
     backToListBtn.addEventListener('click', backToList);
+    flashcardContainer.addEventListener('click', flipCard);
+    nextCardBtn.addEventListener('click', nextCard);
+    prevCardBtn.addEventListener('click', prevCard);
   </script>
 </body>
 </html>
