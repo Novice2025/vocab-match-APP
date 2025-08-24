@@ -34,7 +34,6 @@
 
     <!-- UI for user ID and message box -->
     <div id="status-container" class="space-y-4">
-      <div id="user-id-display" class="text-sm text-center text-gray-500 dark:text-gray-500 break-all"></div>
       <div id="message-box" class="hidden bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 p-4 rounded-xl shadow-lg transition-all duration-300"></div>
     </div>
 
@@ -103,12 +102,8 @@
       measurementId: "G-NGSGCRFSDN"
     };
 
-    // Global variables from the Canvas environment
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    
     // Firebase service instances
     let app, auth, db;
-    let userId;
     let words = [];
     let gameCards = [];
     let flippedCards = [];
@@ -129,7 +124,6 @@
     const gameCardsContainer = document.getElementById('game-cards-container');
     const backToListBtn = document.getElementById('back-to-list-btn');
     const gameWinMessage = document.getElementById('game-win-message');
-    const userIdDisplay = document.getElementById('user-id-display');
     const messageBox = document.getElementById('message-box');
 
     // --- Helper Functions ---
@@ -245,43 +239,25 @@
     // --- Firebase Initialization and Data Handling ---
     window.onload = async () => {
       try {
-        // Use the manually provided firebaseConfig, or fall back to the Canvas-provided one if available.
-        const effectiveFirebaseConfig = Object.keys(firebaseConfig).length > 0 ? firebaseConfig : JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-
-        // Check if a valid config is available
-        if (Object.keys(effectiveFirebaseConfig).length === 0) {
-          showMessage("Error: Firebase configuration not found. Please add it to the code to enable data persistence.", true);
-          return;
-        }
-        
-        app = initializeApp(effectiveFirebaseConfig);
+        app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
         
-        // Use anonymous sign-in, as the custom auth token from the Canvas environment
-        // is not valid for a user-provided Firebase project.
-        await signInAnonymously(auth);
-
-        onAuthStateChanged(auth, (user) => {
-          if (user) {
-            userId = user.uid;
-            userIdDisplay.innerHTML = `<span class="font-bold">User ID:</span> ${userId}`;
-            
-            // Set up a real-time listener for the vocab words
-            const collectionPath = `artifacts/${appId}/users/${userId}/vocabWords`;
-            onSnapshot(collection(db, collectionPath), (snapshot) => {
-              words = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-              }));
-              renderWordList();
-            }, (error) => {
-              console.error("Firestore Snapshot Error:", error);
-            });
-          }
+        // Listen for real-time changes to the public vocabWords collection.
+        // This is a public collection so anyone who accesses the site can use it.
+        onSnapshot(collection(db, "vocabWords"), (snapshot) => {
+          words = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          renderWordList();
+        }, (error) => {
+          console.error("Firestore Snapshot Error:", error);
+          showMessage("Error loading vocabulary. Check your Firebase security rules.", true);
         });
       } catch (error) {
         console.error("Firebase Initialization Error:", error);
+        showMessage("Error: Firebase configuration not found. Please add it to the code to enable data persistence.", true);
       }
     };
 
@@ -351,11 +327,10 @@
     // --- Event Handlers ---
     const addWord = async (e) => {
       e.preventDefault();
-      if (!db || !userId || !newWordInput.value.trim() || !newDefinitionInput.value.trim()) return;
+      if (!db || !newWordInput.value.trim() || !newDefinitionInput.value.trim()) return;
 
       try {
-        const collectionPath = `artifacts/${appId}/users/${userId}/vocabWords`;
-        await addDoc(collection(db, collectionPath), {
+        await addDoc(collection(db, "vocabWords"), {
           word: newWordInput.value.trim(),
           definition: newDefinitionInput.value.trim(),
           createdAt: new Date().toISOString()
@@ -364,16 +339,18 @@
         newDefinitionInput.value = '';
       } catch (error) {
         console.error("Error adding word:", error);
+        showMessage("Error adding word. Check your Firebase security rules.", true);
       }
     };
 
     const deleteWord = async (wordId) => {
-      if (!db || !userId) return;
+      if (!db) return;
       try {
-        const docRef = doc(db, `artifacts/${appId}/users/${userId}/vocabWords`, wordId);
+        const docRef = doc(db, "vocabWords", wordId);
         await deleteDoc(docRef);
       } catch (error) {
         console.error("Error deleting word:", error);
+        showMessage("Error deleting word. Check your Firebase security rules.", true);
       }
     };
 
