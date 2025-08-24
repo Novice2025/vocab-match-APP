@@ -23,6 +23,39 @@
     .card-flipped {
       transform: rotateY(180deg);
     }
+    /* Separate styles for the front and back of the card */
+    .card-front, .card-back {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      border-radius: 1rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      backface-visibility: hidden;
+    }
+    .card-front {
+      background-color: #f3f4f6;
+      color: #1f2937;
+    }
+    .card-back {
+      background-color: #ffffff;
+      color: #1f2937;
+      transform: rotateY(180deg);
+    }
+    .dark .card-front {
+      background-color: #4b5563;
+      color: #f3f4f6;
+    }
+    .dark .card-back {
+      background-color: #1f2937;
+      color: #f3f4f6;
+    }
   </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 min-h-screen antialiased p-4 sm:p-6 lg:p-10">
@@ -75,23 +108,23 @@
           <div class="text-xl font-bold text-gray-800 dark:text-gray-100">Card: <span id="card-index">0</span> / <span id="card-total">0</span></div>
         </div>
 
-        <div id="flashcard-container" class="card-container relative w-full max-w-lg aspect-video p-4 flex items-center justify-center text-center cursor-pointer rounded-xl shadow-lg bg-white dark:bg-gray-800">
-          <div id="flashcard-content" class="absolute inset-0 card-flip flex items-center justify-center text-center">
-            <div id="flashcard-word" class="absolute inset-0 backface-hidden rounded-xl p-4 flex items-center justify-center text-2xl font-bold">
-              <span class="text-xl select-none">No card selected</span>
-              <button class="absolute bottom-4 right-4 p-2 rounded-full speaker-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 text-gray-500 hover:text-blue-500 transition-colors">
-                  <path d="M15.5 22c1.78 0 3.5-2.07 3.5-4.11A10.5 10.5 0 0 0 16 2.01"/><path d="M8 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h4l5 4V2l-5 4z"/><line x1="16" x2="16" y1="2" y2="17"/>
-                </svg>
-              </button>
+        <div id="flashcard-container" class="relative w-full max-w-lg aspect-video p-4 flex items-center justify-center text-center cursor-pointer">
+          <div id="flashcard-content" class="absolute inset-0 card-flip">
+            <div class="card-front">
+                <span id="flashcard-word" class="text-2xl font-bold text-center select-none">No card selected</span>
+                <button id="word-speaker-btn" class="absolute bottom-4 right-4 p-2 rounded-full">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 text-gray-500 hover:text-blue-500 transition-colors">
+                    <path d="M15.5 22c1.78 0 3.5-2.07 3.5-4.11A10.5 10.5 0 0 0 16 2.01"/><path d="M8 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h4l5 4V2l-5 4z"/><line x1="16" x2="16" y1="2" y2="17"/>
+                  </svg>
+                </button>
             </div>
-            <div id="flashcard-definition" class="absolute inset-0 rotate-y-180 backface-hidden rounded-xl p-4 flex items-center justify-center text-center text-lg font-medium">
-              <p>No card selected</p>
-              <button class="absolute bottom-4 right-4 p-2 rounded-full speaker-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 text-gray-500 hover:text-blue-500 transition-colors">
-                  <path d="M15.5 22c1.78 0 3.5-2.07 3.5-4.11A10.5 10.5 0 0 0 16 2.01"/><path d="M8 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h4l5 4V2l-5 4z"/><line x1="16" x2="16" y1="2" y2="17"/>
-                </svg>
-              </button>
+            <div class="card-back">
+                <p id="flashcard-definition" class="text-lg font-medium text-center">No card selected</p>
+                <button id="def-speaker-btn" class="absolute bottom-4 right-4 p-2 rounded-full">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 text-gray-500 hover:text-blue-500 transition-colors">
+                    <path d="M15.5 22c1.78 0 3.5-2.07 3.5-4.11A10.5 10.5 0 0 0 16 2.01"/><path d="M8 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h4l5 4V2l-5 4z"/><line x1="16" x2="16" y1="2" y2="17"/>
+                  </svg>
+                </button>
             </div>
           </div>
         </div>
@@ -146,13 +179,15 @@
     const startGameBtn = document.getElementById('start-game-btn');
     const backToListBtn = document.getElementById('back-to-list-btn');
     const messageBox = document.getElementById('message-box');
-    const flashcardContainer = document.getElementById('flashcard-content');
+    const flashcardContent = document.getElementById('flashcard-content');
     const flashcardWord = document.getElementById('flashcard-word');
     const flashcardDefinition = document.getElementById('flashcard-definition');
     const cardIndexSpan = document.getElementById('card-index');
     const cardTotalSpan = document.getElementById('card-total');
     const prevCardBtn = document.getElementById('prev-card-btn');
     const nextCardBtn = document.getElementById('next-card-btn');
+    const wordSpeakerBtn = document.getElementById('word-speaker-btn');
+    const defSpeakerBtn = document.getElementById('def-speaker-btn');
 
     // --- Helper Functions ---
     // Displays a temporary message in the UI
@@ -292,26 +327,17 @@
 
         const currentWord = gameState.words[gameState.currentCardIndex];
         if (currentWord) {
-            flashcardWord.querySelector('span').textContent = currentWord.word;
-            flashcardWord.querySelector('.speaker-btn').onclick = (e) => {
-              e.stopPropagation();
-              playCardAudio(currentWord.word);
-            };
-
-            flashcardDefinition.querySelector('p').textContent = currentWord.definition;
-            flashcardDefinition.querySelector('.speaker-btn').onclick = (e) => {
-              e.stopPropagation();
-              playCardAudio(currentWord.definition);
-            };
+            flashcardWord.textContent = currentWord.word;
+            flashcardDefinition.textContent = currentWord.definition;
         } else {
-             flashcardWord.querySelector('span').textContent = 'No words added.';
-             flashcardDefinition.querySelector('p').textContent = 'No words added.';
+             flashcardWord.textContent = 'No words added.';
+             flashcardDefinition.textContent = 'No words added.';
         }
 
         if (gameState.isFlipped) {
-            flashcardContainer.classList.add('card-flipped');
+            flashcardContent.classList.add('card-flipped');
         } else {
-            flashcardContainer.classList.remove('card-flipped');
+            flashcardContent.classList.remove('card-flipped');
         }
 
         cardIndexSpan.textContent = gameState.words.length > 0 ? gameState.currentCardIndex + 1 : 0;
@@ -418,9 +444,26 @@
     addWordForm.addEventListener('submit', addWord);
     startGameBtn.addEventListener('click', startGame);
     backToListBtn.addEventListener('click', backToList);
-    flashcardContainer.addEventListener('click', flipCard);
+    flashcardContent.addEventListener('click', flipCard);
     nextCardBtn.addEventListener('click', nextCard);
     prevCardBtn.addEventListener('click', prevCard);
+
+    // Audio button event listeners with stopPropagation
+    wordSpeakerBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentWord = gameState.words[gameState.currentCardIndex];
+      if (currentWord) {
+        playCardAudio(currentWord.word);
+      }
+    });
+
+    defSpeakerBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentWord = gameState.words[gameState.currentCardIndex];
+      if (currentWord) {
+        playCardAudio(currentWord.definition);
+      }
+    });
   </script>
 </body>
 </html>
