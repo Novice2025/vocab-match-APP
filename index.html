@@ -347,6 +347,14 @@
     // --- Firebase Initialization and Data Handling ---
     const initFirebaseAndLoadData = async () => {
         loadingSpinner.classList.remove('hidden');
+
+        // Check if firebaseConfig is provided by the environment
+        if (Object.keys(firebaseConfig).length === 0) {
+            showMessage("Error: Firebase configuration not found. This app requires a database connection to save data.", true);
+            loadingSpinner.classList.add('hidden');
+            return; // Stop execution if config is missing
+        }
+
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
@@ -386,7 +394,7 @@
             });
         } catch (error) {
             console.error("Firebase Initialization Error:", error);
-            showMessage("Error: Firebase configuration not found. Please add it to the code to enable data persistence.", true);
+            showMessage("Error: Failed to initialize Firebase. Please check the configuration and try again.", true);
             loadingSpinner.classList.add('hidden');
         }
     };
