@@ -225,14 +225,17 @@
             isSpeaking = false;
             URL.revokeObjectURL(audioUrl);
           };
-          audio.play().catch(e => console.error("Audio play error:", e));
+          audio.play().catch(e => {
+            console.error("Audio play error:", e);
+            isSpeaking = false;
+          });
         } else {
           console.error("No audio data received from API.");
           isSpeaking = false;
         }
       } catch (error) {
         console.error("Error generating audio:", error);
-        isSpeaking = false;
+        isSpeaking = false; // Add this line to reset the flag on error
       }
     };
 
