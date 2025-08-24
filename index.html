@@ -92,9 +92,22 @@
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, doc, setDoc, addDoc, collection, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+    // --- IMPORTANT: Paste your Firebase config here to enable data persistence on GitHub Pages. ---
+    // You can find this in your Firebase project settings. It will look like this:
+    // const firebaseConfig = {
+    //   apiKey: "...",
+    //   authDomain: "...",
+    //   projectId: "...",
+    //   storageBucket: "...",
+    //   messagingSenderId: "...",
+    //   appId: "..."
+    // };
+    // DO NOT ADD YOUR API KEY IF YOU ARE JUST USING IT INSIDE THE CANVAS.
+    // Replace the empty object below with your actual config.
+    const firebaseConfig = {};
+
     // Global variables from the Canvas environment
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
     // Firebase service instances
@@ -236,7 +249,16 @@
     // --- Firebase Initialization and Data Handling ---
     window.onload = async () => {
       try {
-        app = initializeApp(firebaseConfig);
+        // Use the manually provided firebaseConfig, or fall back to the Canvas-provided one if available.
+        const effectiveFirebaseConfig = Object.keys(firebaseConfig).length > 0 ? firebaseConfig : JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+        // Check if a valid config is available
+        if (Object.keys(effectiveFirebaseConfig).length === 0) {
+          showMessage("Error: Firebase configuration not found. Please add it to the code to enable data persistence.", true);
+          return;
+        }
+        
+        app = initializeApp(effectiveFirebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
 
