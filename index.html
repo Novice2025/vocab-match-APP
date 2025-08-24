@@ -110,6 +110,8 @@
     let matchedPairs = new Set();
     let score = 0;
     let isSpeaking = false;
+    // New flag to manage clicks during the flip-back delay.
+    let canFlip = true;
 
     // --- DOM Elements ---
     const addModeSection = document.getElementById('add-mode');
@@ -131,7 +133,7 @@
     const showMessage = (message, isError = true) => {
       messageBox.textContent = message;
       messageBox.classList.remove('hidden');
-      messageBox.className = isError 
+      messageBox.className = isError
         ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 p-4 rounded-xl shadow-lg transition-all duration-300'
         : 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200 p-4 rounded-xl shadow-lg transition-all duration-300';
       setTimeout(() => {
@@ -250,6 +252,7 @@
       gameCardsContainer.innerHTML = '';
       playModeSection.classList.add('hidden');
       addModeSection.classList.remove('hidden');
+      canFlip = true; // Reset the canFlip flag
     };
 
     // --- Firebase Initialization and Data Handling ---
@@ -258,7 +261,7 @@
         app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
-        
+
         // Listen for real-time changes to the public vocabWords collection.
         // This is a public collection so anyone who accesses the site can use it.
         onSnapshot(collection(db, "vocabWords"), (snapshot) => {
@@ -397,7 +400,7 @@
     };
 
     const handleCardClick = (card) => {
-      if (isSpeaking || flippedCards.length === 2 || flippedCards.some(c => c.id === card.id) || matchedPairs.has(card.pairId)) {
+      if (!canFlip || isSpeaking || flippedCards.some(c => c.id === card.id) || matchedPairs.has(card.pairId)) {
         return;
       }
 
@@ -407,6 +410,7 @@
       renderGameCards();
 
       if (flippedCards.length === 2) {
+        canFlip = false; // Disable clicks after two cards are flipped
         const [card1, card2] = flippedCards;
         if (card1.pairId === card2.pairId) {
           matchedPairs.add(card1.pairId);
@@ -419,11 +423,13 @@
           setTimeout(() => {
             flippedCards = [];
             renderGameCards();
+            canFlip = true; // Re-enable clicks after a short delay
           }, 500);
         } else {
           setTimeout(() => {
             flippedCards = [];
             renderGameCards();
+            canFlip = true; // Re-enable clicks after a short delay
           }, 1000);
         }
       }
