@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocab-Match</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .backface-hidden {
+      backface-visibility: hidden;
+    }
+    .card-container {
+      perspective: 1000px;
+    }
+    .card-flip {
+      transform-style: preserve-3d;
+      transition: transform 0.5s;
+    }
+    .card-flipped {
+      transform: rotateY(180deg);
+    }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50 min-h-screen antialiased p-4 sm:p-6 lg:p-10">
+  <div class="max-w-4xl mx-auto space-y-8">
+    <header class="text-center space-y-2">
+      <h1 class="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600">Vocab-Match</h1>
+      <p class="text-xl text-gray-600 dark:text-gray-400">Your personalized vocabulary game!</p>
+    </header>
+
+    <!-- UI for user ID and message box -->
+    <div id="status-container" class="space-y-4">
+      <div id="user-id-display" class="text-sm text-center text-gray-500 dark:text-gray-500 break-all"></div>
+      <div id="message-box" class="hidden bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 p-4 rounded-xl shadow-lg transition-all duration-300"></div>
+    </div>
+
+    <!-- Add Words and View List Section -->
+    <main id="add-mode" class="space-y-8">
+      <section class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl space-y-4">
+        <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Add New Words</h2>
+        <p class="text-gray-600 dark:text-gray-400">Enter a word and its definition to build your vocabulary list. You need at least two pairs to play!</p>
+        <form id="add-word-form" class="space-y-4">
+          <input id="new-word-input" type="text" placeholder="Enter a new word..." class="w-full p-3 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 dark:text-gray-200" required />
+          <input id="new-definition-input" type="text" placeholder="Enter the definition..." class="w-full p-3 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 dark:text-gray-200" required />
+          <button type="submit" class="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+            Add Word
+          </button>
+        </form>
+      </section>
+
+      <section class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Your Words (<span id="word-count">0</span>)</h2>
+          <button id="start-game-btn" class="hidden flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+            Start Game
+          </button>
+        </div>
+        <div id="words-list" class="space-y-4">
+          <!-- Words will be dynamically inserted here -->
+        </div>
+      </section>
+    </main>
+
+    <!-- Game Play Section -->
+    <main id="play-mode" class="space-y-8 hidden">
+      <div class="flex flex-col items-center justify-center space-y-4">
+        <div class="flex items-center justify-between w-full max-w-lg p-4 rounded-xl shadow-lg bg-white dark:bg-gray-800">
+          <div class="text-xl font-bold text-gray-800 dark:text-gray-100">Score: <span id="score">0</span></div>
+          <button id="back-to-list-btn" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+            Back to List
+          </button>
+        </div>
+
+        <div id="game-win-message" class="hidden bg-green-500 text-white font-bold text-2xl p-6 rounded-2xl shadow-xl text-center animate-bounce">
+          You've matched all the pairs! Great job!
+        </div>
+
+        <div id="game-cards-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 w-full max-w-4xl">
+          <!-- Game cards will be dynamically inserted here -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, addDoc, collection, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Global variables from the Canvas environment
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+    // Firebase service instances
+    let app, auth, db;
+    let userId;
+    let words = [];
+    let gameCards = [];
+    let flippedCards = [];
+    let matchedPairs = new Set();
+    let score = 0;
+    let isSpeaking = false;
+
+    // --- DOM Elements ---
+    const addModeSection = document.getElementById('add-mode');
+    const playModeSection = document.getElementById('play-mode');
+    const addWordForm = document.getElementById('add-word-form');
+    const newWordInput = document.getElementById('new-word-input');
+    const newDefinitionInput = document.getElementById('new-definition-input');
+    const wordCountSpan = document.getElementById('word-count');
+    const wordsListDiv = document.getElementById('words-list');
+    const startGameBtn = document.getElementById('start-game-btn');
+    const scoreSpan = document.getElementById('score');
+    const gameCardsContainer = document.getElementById('game-cards-container');
+    const backToListBtn = document.getElementById('back-to-list-btn');
+    const gameWinMessage = document.getElementById('game-win-message');
+    const userIdDisplay = document.getElementById('user-id-display');
+    const messageBox = document.getElementById('message-box');
+
+    // --- Helper Functions ---
+    // Displays a temporary message in the UI
+    const showMessage = (message, isError = true) => {
+      messageBox.textContent = message;
+      messageBox.classList.remove('hidden');
+      messageBox.className = isError 
+        ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 p-4 rounded-xl shadow-lg transition-all duration-300'
+        : 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200 p-4 rounded-xl shadow-lg transition-all duration-300';
+      setTimeout(() => {
+        messageBox.classList.add('hidden');
+      }, 3000);
+    };
+
+    // Shuffles an array in place using the Fisher-Yates algorithm.
+    const shuffleArray = (array) => {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    };
+
+    // Helper function to convert base64 PCM data to a WAV Blob
+    const pcmToWav = (pcmData, sampleRate) => {
+      const pcm16 = new Int16Array(pcmData);
+      const buffer = new ArrayBuffer(44 + pcm16.length * 2);
+      const view = new DataView(buffer);
+
+      writeString(view, 0, 'RIFF');
+      view.setUint32(4, 36 + pcm16.length * 2, true);
+      writeString(view, 8, 'WAVE');
+      writeString(view, 12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeString(view, 36, 'data');
+      view.setUint32(40, pcm16.length * 2, true);
+
+      let offset = 44;
+      for (let i = 0; i < pcm16.length; i++, offset += 2) {
+        view.setInt16(offset, pcm16[i], true);
+      }
+
+      return new Blob([view], { type: 'audio/wav' });
+    };
+
+    const writeString = (view, offset, string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+
+    const playCardAudio = async (text) => {
+      if (isSpeaking) return;
+      isSpeaking = true;
+
+      try {
+        const payload = {
+          contents: [{
+            parts: [{ text: text }]
+          }],
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: "Zephyr" }
+              }
+            }
+          },
+          model: "gemini-2.5-flash-preview-tts"
+        };
+        const apiKey = ""; // Canvas will automatically provide the API key
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+
+        const part = result?.candidates?.[0]?.content?.parts?.[0];
+        const audioData = part?.inlineData?.data;
+        const mimeType = part?.inlineData?.mimeType;
+
+        if (audioData && mimeType && mimeType.startsWith("audio/")) {
+          const sampleRate = parseInt(mimeType.match(/rate=(\d+)/)[1], 10);
+          const pcmData = Uint8Array.from(atob(audioData), c => c.charCodeAt(0)).buffer;
+          const wavBlob = pcmToWav(pcmData, sampleRate);
+          const audioUrl = URL.createObjectURL(wavBlob);
+          const audio = new Audio(audioUrl);
+          audio.onended = () => {
+            isSpeaking = false;
+            URL.revokeObjectURL(audioUrl);
+          };
+          audio.play().catch(e => console.error("Audio play error:", e));
+        } else {
+          console.error("No audio data received from API.");
+          isSpeaking = false;
+        }
+      } catch (error) {
+        console.error("Error generating audio:", error);
+        isSpeaking = false;
+      }
+    };
+
+    // --- Firebase Initialization and Data Handling ---
+    window.onload = async () => {
+      try {
+        app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+
+        // Authenticate the user
+        if (initialAuthToken) {
+          await signInWithCustomToken(auth, initialAuthToken);
+        } else {
+          await signInAnonymously(auth);
+        }
+
+        onAuthStateChanged(auth, (user) => {
+          if (user) {
+            userId = user.uid;
+            userIdDisplay.innerHTML = `<span class="font-bold">User ID:</span> ${userId}`;
+            
+            // Set up a real-time listener for the vocab words
+            const collectionPath = `artifacts/${appId}/users/${userId}/vocabWords`;
+            onSnapshot(collection(db, collectionPath), (snapshot) => {
+              words = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              }));
+              renderWordList();
+            }, (error) => {
+              console.error("Firestore Snapshot Error:", error);
+            });
+          }
+        });
+      } catch (error) {
+        console.error("Firebase Initialization Error:", error);
+      }
+    };
+
+    // --- Render Functions ---
+    const renderWordList = () => {
+      wordCountSpan.textContent = words.length;
+      wordsListDiv.innerHTML = '';
+      if (words.length === 0) {
+        wordsListDiv.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400">Your vocabulary list is empty. Add some words above!</p>';
+        startGameBtn.classList.add('hidden');
+      } else {
+        words.forEach(word => {
+          const li = document.createElement('li');
+          li.className = 'flex items-center justify-between p-4 bg-gray-100 dark:bg-gray-900 rounded-xl shadow-md';
+          li.innerHTML = `
+            <div>
+              <p class="font-semibold text-lg">${word.word}</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400 italic">${word.definition}</p>
+            </div>
+            <button class="p-2 text-red-500 hover:text-red-700 transition-colors delete-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+            </button>
+          `;
+          li.querySelector('.delete-btn').addEventListener('click', () => deleteWord(word.id));
+          wordsListDiv.appendChild(li);
+        });
+        if (words.length >= 2) {
+          startGameBtn.classList.remove('hidden');
+        } else {
+          startGameBtn.classList.add('hidden');
+        }
+      }
+    };
+
+    const renderGameCards = () => {
+      gameCardsContainer.innerHTML = '';
+      gameCards.forEach(card => {
+        const cardDiv = document.createElement('div');
+        const isFlipped = flippedCards.some(c => c.id === card.id);
+        const isMatched = matchedPairs.has(card.pairId);
+        const isFaceUp = isFlipped || isMatched;
+
+        cardDiv.className = `card-container relative w-full aspect-square bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 p-4 flex items-center justify-center text-center cursor-pointer ${isFaceUp ? 'card-flipped' : ''}`;
+        cardDiv.innerHTML = `
+          <div class="absolute inset-0 backface-hidden bg-gray-300 dark:bg-gray-600 rounded-xl p-4 flex items-center justify-center text-xl font-bold">
+            <span class="text-xl select-none">?</span>
+          </div>
+          <div class="absolute inset-0 rotate-y-180 backface-hidden rounded-xl p-4 flex items-center justify-center text-center text-base font-medium">
+            <p>${card.value}</p>
+            <button class="absolute bottom-2 right-2 p-2 rounded-full speaker-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 text-gray-500 hover:text-blue-500 transition-colors">
+                <path d="M15.5 22c1.78 0 3.5-2.07 3.5-4.11A10.5 10.5 0 0 0 16 2.01"/><path d="M8 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h4l5 4V2l-5 4z"/><line x1="16" x2="16" y1="2" y2="17"/>
+              </svg>
+            </button>
+          </div>
+        `;
+
+        cardDiv.addEventListener('click', () => handleCardClick(card));
+        cardDiv.querySelector('.speaker-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          playCardAudio(card.value);
+        });
+        gameCardsContainer.appendChild(cardDiv);
+      });
+    };
+
+    // --- Event Handlers ---
+    const addWord = async (e) => {
+      e.preventDefault();
+      if (!db || !userId || !newWordInput.value.trim() || !newDefinitionInput.value.trim()) return;
+
+      try {
+        const collectionPath = `artifacts/${appId}/users/${userId}/vocabWords`;
+        await addDoc(collection(db, collectionPath), {
+          word: newWordInput.value.trim(),
+          definition: newDefinitionInput.value.trim(),
+          createdAt: new Date().toISOString()
+        });
+        newWordInput.value = '';
+        newDefinitionInput.value = '';
+      } catch (error) {
+        console.error("Error adding word:", error);
+      }
+    };
+
+    const deleteWord = async (wordId) => {
+      if (!db || !userId) return;
+      try {
+        const docRef = doc(db, `artifacts/${appId}/users/${userId}/vocabWords`, wordId);
+        await deleteDoc(docRef);
+      } catch (error) {
+        console.error("Error deleting word:", error);
+      }
+    };
+
+    const startGame = () => {
+      if (words.length < 2) {
+        showMessage("You need at least two words to start the game!");
+        return;
+      }
+      addModeSection.classList.add('hidden');
+      playModeSection.classList.remove('hidden');
+
+      gameCards = words.flatMap(w => [
+        { id: `${w.id}-word`, value: w.word, type: 'word', pairId: w.id },
+        { id: `${w.id}-def`, value: w.definition, type: 'definition', pairId: w.id }
+      ]);
+
+      shuffleArray(gameCards);
+      flippedCards = [];
+      matchedPairs = new Set();
+      score = 0;
+      scoreSpan.textContent = score;
+      gameWinMessage.classList.add('hidden');
+      renderGameCards();
+    };
+
+    const handleCardClick = (card) => {
+      if (isSpeaking || flippedCards.length === 2 || flippedCards.some(c => c.id === card.id) || matchedPairs.has(card.pairId)) {
+        return;
+      }
+
+      playCardAudio(card.value);
+
+      flippedCards.push(card);
+      renderGameCards();
+
+      if (flippedCards.length === 2) {
+        const [card1, card2] = flippedCards;
+        if (card1.pairId === card2.pairId) {
+          matchedPairs.add(card1.pairId);
+          score++;
+          scoreSpan.textContent = score;
+
+          if (matchedPairs.size === words.length) {
+            gameWinMessage.classList.remove('hidden');
+          }
+          setTimeout(() => {
+            flippedCards = [];
+            renderGameCards();
+          }, 500);
+        } else {
+          setTimeout(() => {
+            flippedCards = [];
+            renderGameCards();
+          }, 1000);
+        }
+      }
+    };
+
+    const backToList = () => {
+      addModeSection.classList.remove('hidden');
+      playModeSection.classList.add('hidden');
+    };
+
+    // --- Attach Event Listeners ---
+    addWordForm.addEventListener('submit', addWord);
+    startGameBtn.addEventListener('click', startGame);
+    backToListBtn.addEventListener('click', backToList);
+  </script>
+</body>
+</html>
