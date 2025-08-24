@@ -69,6 +69,8 @@
     <div id="status-container" class="space-y-4">
       <div id="message-box" class="hidden bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 p-4 rounded-xl shadow-lg transition-all duration-300"></div>
     </div>
+    <div id="loading-spinner" class="text-center text-blue-500 hidden">Loading...</div>
+    <div class="text-center text-sm text-gray-400">User ID: <span id="user-id">Loading...</span></div>
 
     <!-- Add Words and View List Section -->
     <main id="add-mode" class="space-y-8">
@@ -143,29 +145,25 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, doc, addDoc, collection, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // --- IMPORTANT: Paste your Firebase config here to enable data persistence on GitHub Pages. ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyAXqOfd0OdNelwSVfMbXvvV8Bc3BTRuG_Q",
-      authDomain: "memorise-app-23988.firebaseapp.com",
-      projectId: "memorise-app-23988",
-      storageBucket: "memorise-app-23988.firebasestorage.app",
-      messagingSenderId: "119652786860",
-      appId: "1:119652786860:web:bb4571222c501b5856b509",
-      measurementId: "G-NGSGCRFSDN"
-    };
+    // --- Global Variables provided by the Canvas Environment ---
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
     // Firebase service instances
     let app, auth, db;
+    let userId;
     let isSpeaking = false;
 
     // A single object to hold the entire game state.
     const gameState = {
         words: [],
         currentCardIndex: 0,
-        isFlipped: false
+        isFlipped: false,
+        isAuthReady: false
     };
 
     // --- DOM Elements ---
@@ -179,6 +177,8 @@
     const startGameBtn = document.getElementById('start-game-btn');
     const backToListBtn = document.getElementById('back-to-list-btn');
     const messageBox = document.getElementById('message-box');
+    const loadingSpinner = document.getElementById('loading-spinner');
+    const userIdSpan = document.getElementById('user-id');
     const flashcardContent = document.getElementById('flashcard-content');
     const flashcardWord = document.getElementById('flashcard-word');
     const flashcardDefinition = document.getElementById('flashcard-definition');
@@ -345,32 +345,53 @@
     };
 
     // --- Firebase Initialization and Data Handling ---
-    window.onload = async () => {
-      try {
-        app = initializeApp(firebaseConfig);
-        auth = getAuth(app);
-        db = getFirestore(app);
+    const initFirebaseAndLoadData = async () => {
+        loadingSpinner.classList.remove('hidden');
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
 
-        // Listen for real-time changes to the public vocabWords collection.
-        onSnapshot(collection(db, "vocabWords"), (snapshot) => {
-          gameState.words = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          render();
-        }, (error) => {
-          console.error("Firestore Snapshot Error:", error);
-          showMessage("Error loading vocabulary. Check your Firebase security rules.", true);
-        });
+            if (initialAuthToken) {
+                await signInWithCustomToken(auth, initialAuthToken);
+            } else {
+                await signInAnonymously(auth);
+            }
 
-        // Initial render
-        render();
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    userId = user.uid;
+                    userIdSpan.textContent = userId;
+                    gameState.isAuthReady = true;
 
-      } catch (error) {
-        console.error("Firebase Initialization Error:", error);
-        showMessage("Error: Firebase configuration not found. Please add it to the code to enable data persistence.", true);
-      }
+                    // Set up the real-time listener for the user's private collection
+                    const userVocabCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/vocabWords`);
+                    onSnapshot(userVocabCollectionRef, (snapshot) => {
+                        gameState.words = snapshot.docs.map(doc => ({
+                            id: doc.id,
+                            ...doc.data()
+                        }));
+                        render();
+                    }, (error) => {
+                        console.error("Firestore Snapshot Error:", error);
+                        showMessage("Error loading vocabulary. Check your Firebase security rules.", true);
+                    });
+
+                } else {
+                    console.log("User is signed out.");
+                    userIdSpan.textContent = "Not authenticated";
+                    gameState.isAuthReady = false;
+                }
+                loadingSpinner.classList.add('hidden');
+            });
+        } catch (error) {
+            console.error("Firebase Initialization Error:", error);
+            showMessage("Error: Firebase configuration not found. Please add it to the code to enable data persistence.", true);
+            loadingSpinner.classList.add('hidden');
+        }
     };
+    
+    window.onload = initFirebaseAndLoadData;
 
     // --- Event Handlers ---
     const addWord = async (e) => {
@@ -378,8 +399,8 @@
       const newWord = newWordInput.value.trim();
       const newDefinition = newDefinitionInput.value.trim();
 
-      if (!db || !newWord || !newDefinition) {
-        showMessage("Please fill out both fields.");
+      if (!db || !newWord || !newDefinition || !gameState.isAuthReady) {
+        showMessage("Please wait for the app to load and fill out both fields.");
         return;
       }
       
@@ -389,7 +410,7 @@
       }
 
       try {
-        await addDoc(collection(db, "vocabWords"), {
+        await addDoc(collection(db, `artifacts/${appId}/users/${userId}/vocabWords`), {
           word: newWord,
           definition: newDefinition,
           createdAt: new Date().toISOString()
@@ -403,9 +424,9 @@
     };
 
     const deleteWord = async (wordId) => {
-      if (!db) return;
+      if (!db || !gameState.isAuthReady) return;
       try {
-        const docRef = doc(db, "vocabWords", wordId);
+        const docRef = doc(db, `artifacts/${appId}/users/${userId}/vocabWords`, wordId);
         await deleteDoc(docRef);
       } catch (error) {
         console.error("Error deleting word:", error);
