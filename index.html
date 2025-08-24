@@ -239,6 +239,19 @@
       }
     };
 
+    // Function to reset the game to its initial state
+    const resetGame = () => {
+      gameCards = [];
+      flippedCards = [];
+      matchedPairs = new Set();
+      score = 0;
+      scoreSpan.textContent = score;
+      gameWinMessage.classList.add('hidden');
+      gameCardsContainer.innerHTML = '';
+      playModeSection.classList.add('hidden');
+      addModeSection.classList.remove('hidden');
+    };
+
     // --- Firebase Initialization and Data Handling ---
     window.onload = async () => {
       try {
@@ -258,6 +271,10 @@
           console.error("Firestore Snapshot Error:", error);
           showMessage("Error loading vocabulary. Check your Firebase security rules.", true);
         });
+
+        // Initialize the game state on page load
+        resetGame();
+
       } catch (error) {
         console.error("Firebase Initialization Error:", error);
         showMessage("Error: Firebase configuration not found. Please add it to the code to enable data persistence.", true);
@@ -413,8 +430,7 @@
     };
 
     const backToList = () => {
-      addModeSection.classList.remove('hidden');
-      playModeSection.classList.add('hidden');
+      resetGame();
     };
 
     // --- Attach Event Listeners ---
