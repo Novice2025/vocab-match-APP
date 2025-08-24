@@ -375,12 +375,23 @@
     // --- Event Handlers ---
     const addWord = async (e) => {
       e.preventDefault();
-      if (!db || !newWordInput.value.trim() || !newDefinitionInput.value.trim()) return;
+      const newWord = newWordInput.value.trim();
+      const newDefinition = newDefinitionInput.value.trim();
+
+      if (!db || !newWord || !newDefinition) {
+        showMessage("Please fill out both fields.");
+        return;
+      }
+      
+      if (newWord.toLowerCase() === newDefinition.toLowerCase()) {
+        showMessage("The word and definition cannot be the same.");
+        return;
+      }
 
       try {
         await addDoc(collection(db, "vocabWords"), {
-          word: newWordInput.value.trim(),
-          definition: newDefinitionInput.value.trim(),
+          word: newWord,
+          definition: newDefinition,
           createdAt: new Date().toISOString()
         });
         newWordInput.value = '';
