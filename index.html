@@ -104,14 +104,16 @@
 
     // Firebase service instances
     let app, auth, db;
-    let words = [];
-    let gameCards = [];
-    let flippedCards = [];
-    let matchedPairs = new Set();
-    let score = 0;
     let isSpeaking = false;
-    // New flag to manage clicks during the flip-back delay.
-    let canFlip = true;
+
+    // A single object to hold the entire game state. This makes logic more robust.
+    const gameState = {
+        words: [],
+        gameCards: [],
+        flippedCards: [],
+        score: 0,
+        isLocked: false,
+    };
 
     // --- DOM Elements ---
     const addModeSection = document.getElementById('add-mode');
@@ -241,18 +243,75 @@
       }
     };
 
-    // Function to reset the game to its initial state
-    const resetGame = () => {
-      gameCards = [];
-      flippedCards = [];
-      matchedPairs = new Set();
-      score = 0;
-      scoreSpan.textContent = score;
-      gameWinMessage.classList.add('hidden');
-      gameCardsContainer.innerHTML = '';
-      playModeSection.classList.add('hidden');
-      addModeSection.classList.remove('hidden');
-      canFlip = true; // Reset the canFlip flag
+    // --- Render Functions ---
+    const render = () => {
+        // Render the UI based on the current game state
+        wordsListDiv.innerHTML = '';
+        wordCountSpan.textContent = gameState.words.length;
+        if (gameState.words.length === 0) {
+            wordsListDiv.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400">Your vocabulary list is empty. Add some words above!</p>';
+            startGameBtn.classList.add('hidden');
+        } else {
+            gameState.words.forEach(word => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between p-4 bg-gray-100 dark:bg-gray-900 rounded-xl shadow-md';
+                li.innerHTML = `
+                  <div>
+                    <p class="font-semibold text-lg">${word.word}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 italic">${word.definition}</p>
+                  </div>
+                  <button class="p-2 text-red-500 hover:text-red-700 transition-colors delete-btn" data-id="${word.id}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                  </button>
+                `;
+                li.querySelector('.delete-btn').addEventListener('click', (e) => deleteWord(e.currentTarget.dataset.id));
+                wordsListDiv.appendChild(li);
+            });
+            if (gameState.words.length >= 2) {
+                startGameBtn.classList.remove('hidden');
+            } else {
+                startGameBtn.classList.add('hidden');
+            }
+        }
+
+        scoreSpan.textContent = gameState.score;
+        gameCardsContainer.innerHTML = '';
+        if (playModeSection.classList.contains('hidden')) {
+            return;
+        }
+
+        gameState.gameCards.forEach(card => {
+            const cardDiv = document.createElement('div');
+            const isFaceUp = card.isFlipped || card.isMatched;
+
+            cardDiv.className = `card-container relative w-full aspect-square bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 p-4 flex items-center justify-center text-center cursor-pointer ${isFaceUp ? 'card-flipped' : ''}`;
+            cardDiv.innerHTML = `
+              <div class="absolute inset-0 backface-hidden bg-gray-300 dark:bg-gray-600 rounded-xl p-4 flex items-center justify-center text-xl font-bold">
+                <span class="text-xl select-none">?</span>
+              </div>
+              <div class="absolute inset-0 rotate-y-180 backface-hidden rounded-xl p-4 flex items-center justify-center text-center text-base font-medium">
+                <p>${card.value}</p>
+                <button class="absolute bottom-2 right-2 p-2 rounded-full speaker-btn">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 text-gray-500 hover:text-blue-500 transition-colors">
+                    <path d="M15.5 22c1.78 0 3.5-2.07 3.5-4.11A10.5 10.5 0 0 0 16 2.01"/><path d="M8 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h4l5 4V2l-5 4z"/><line x1="16" x2="16" y1="2" y2="17"/>
+                  </svg>
+                </button>
+              </div>
+            `;
+
+            cardDiv.addEventListener('click', () => handleCardClick(card));
+            cardDiv.querySelector('.speaker-btn').addEventListener('click', (e) => {
+              e.stopPropagation();
+              playCardAudio(card.value);
+            });
+            gameCardsContainer.appendChild(cardDiv);
+        });
+
+        if (gameState.gameCards.length > 0 && gameState.gameCards.every(card => card.isMatched)) {
+            gameWinMessage.classList.remove('hidden');
+        } else {
+            gameWinMessage.classList.add('hidden');
+        }
     };
 
     // --- Firebase Initialization and Data Handling ---
@@ -263,88 +322,24 @@
         db = getFirestore(app);
 
         // Listen for real-time changes to the public vocabWords collection.
-        // This is a public collection so anyone who accesses the site can use it.
         onSnapshot(collection(db, "vocabWords"), (snapshot) => {
-          words = snapshot.docs.map(doc => ({
+          gameState.words = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
           }));
-          renderWordList();
+          render();
         }, (error) => {
           console.error("Firestore Snapshot Error:", error);
           showMessage("Error loading vocabulary. Check your Firebase security rules.", true);
         });
 
-        // Initialize the game state on page load
-        resetGame();
+        // Initial render
+        render();
 
       } catch (error) {
         console.error("Firebase Initialization Error:", error);
         showMessage("Error: Firebase configuration not found. Please add it to the code to enable data persistence.", true);
       }
-    };
-
-    // --- Render Functions ---
-    const renderWordList = () => {
-      wordCountSpan.textContent = words.length;
-      wordsListDiv.innerHTML = '';
-      if (words.length === 0) {
-        wordsListDiv.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400">Your vocabulary list is empty. Add some words above!</p>';
-        startGameBtn.classList.add('hidden');
-      } else {
-        words.forEach(word => {
-          const li = document.createElement('li');
-          li.className = 'flex items-center justify-between p-4 bg-gray-100 dark:bg-gray-900 rounded-xl shadow-md';
-          li.innerHTML = `
-            <div>
-              <p class="font-semibold text-lg">${word.word}</p>
-              <p class="text-sm text-gray-500 dark:text-gray-400 italic">${word.definition}</p>
-            </div>
-            <button class="p-2 text-red-500 hover:text-red-700 transition-colors delete-btn">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-            </button>
-          `;
-          li.querySelector('.delete-btn').addEventListener('click', () => deleteWord(word.id));
-          wordsListDiv.appendChild(li);
-        });
-        if (words.length >= 2) {
-          startGameBtn.classList.remove('hidden');
-        } else {
-          startGameBtn.classList.add('hidden');
-        }
-      }
-    };
-
-    const renderGameCards = () => {
-      gameCardsContainer.innerHTML = '';
-      gameCards.forEach(card => {
-        const cardDiv = document.createElement('div');
-        const isFlipped = flippedCards.some(c => c.id === card.id);
-        const isMatched = matchedPairs.has(card.pairId);
-        const isFaceUp = isFlipped || isMatched;
-
-        cardDiv.className = `card-container relative w-full aspect-square bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 p-4 flex items-center justify-center text-center cursor-pointer ${isFaceUp ? 'card-flipped' : ''}`;
-        cardDiv.innerHTML = `
-          <div class="absolute inset-0 backface-hidden bg-gray-300 dark:bg-gray-600 rounded-xl p-4 flex items-center justify-center text-xl font-bold">
-            <span class="text-xl select-none">?</span>
-          </div>
-          <div class="absolute inset-0 rotate-y-180 backface-hidden rounded-xl p-4 flex items-center justify-center text-center text-base font-medium">
-            <p>${card.value}</p>
-            <button class="absolute bottom-2 right-2 p-2 rounded-full speaker-btn">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 text-gray-500 hover:text-blue-500 transition-colors">
-                <path d="M15.5 22c1.78 0 3.5-2.07 3.5-4.11A10.5 10.5 0 0 0 16 2.01"/><path d="M8 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h4l5 4V2l-5 4z"/><line x1="16" x2="16" y1="2" y2="17"/>
-              </svg>
-            </button>
-          </div>
-        `;
-
-        cardDiv.addEventListener('click', () => handleCardClick(card));
-        cardDiv.querySelector('.speaker-btn').addEventListener('click', (e) => {
-          e.stopPropagation();
-          playCardAudio(card.value);
-        });
-        gameCardsContainer.appendChild(cardDiv);
-      });
     };
 
     // --- Event Handlers ---
@@ -378,65 +373,79 @@
     };
 
     const startGame = () => {
-      if (words.length < 2) {
+      if (gameState.words.length < 2) {
         showMessage("You need at least two words to start the game!");
         return;
       }
       addModeSection.classList.add('hidden');
       playModeSection.classList.remove('hidden');
 
-      gameCards = words.flatMap(w => [
-        { id: `${w.id}-word`, value: w.word, type: 'word', pairId: w.id },
-        { id: `${w.id}-def`, value: w.definition, type: 'definition', pairId: w.id }
+      gameState.gameCards = gameState.words.flatMap(w => [
+        { id: `${w.id}-word`, value: w.word, type: 'word', pairId: w.id, isFlipped: false, isMatched: false },
+        { id: `${w.id}-def`, value: w.definition, type: 'definition', pairId: w.id, isFlipped: false, isMatched: false }
       ]);
-
-      shuffleArray(gameCards);
-      flippedCards = [];
-      matchedPairs = new Set();
-      score = 0;
-      scoreSpan.textContent = score;
-      gameWinMessage.classList.add('hidden');
-      renderGameCards();
+      shuffleArray(gameState.gameCards);
+      gameState.flippedCards = [];
+      gameState.score = 0;
+      gameState.isLocked = false;
+      render();
     };
 
     const handleCardClick = (card) => {
-      if (!canFlip || isSpeaking || flippedCards.some(c => c.id === card.id) || matchedPairs.has(card.pairId)) {
+      if (gameState.isLocked || isSpeaking || card.isFlipped || card.isMatched) {
         return;
       }
 
       playCardAudio(card.value);
 
-      flippedCards.push(card);
-      renderGameCards();
+      // Flip the card and add to flipped list
+      const clickedCardIndex = gameState.gameCards.findIndex(c => c.id === card.id);
+      gameState.gameCards[clickedCardIndex].isFlipped = true;
+      gameState.flippedCards.push(card);
 
-      if (flippedCards.length === 2) {
-        canFlip = false; // Disable clicks after two cards are flipped
-        const [card1, card2] = flippedCards;
+      render();
+
+      if (gameState.flippedCards.length === 2) {
+        gameState.isLocked = true; // Disable clicks
+        const [card1, card2] = gameState.flippedCards;
         if (card1.pairId === card2.pairId) {
-          matchedPairs.add(card1.pairId);
-          score++;
-          scoreSpan.textContent = score;
+          gameState.score++;
+          // Mark cards as matched
+          const matchedCard1Index = gameState.gameCards.findIndex(c => c.id === card1.id);
+          const matchedCard2Index = gameState.gameCards.findIndex(c => c.id === card2.id);
+          gameState.gameCards[matchedCard1Index].isMatched = true;
+          gameState.gameCards[matched2Index].isMatched = true;
 
-          if (matchedPairs.size === words.length) {
-            gameWinMessage.classList.remove('hidden');
-          }
+          // Clear flipped cards and re-enable clicks
           setTimeout(() => {
-            flippedCards = [];
-            renderGameCards();
-            canFlip = true; // Re-enable clicks after a short delay
+              gameState.flippedCards = [];
+              gameState.isLocked = false;
+              render();
           }, 500);
         } else {
+          // Flip cards back over
           setTimeout(() => {
-            flippedCards = [];
-            renderGameCards();
-            canFlip = true; // Re-enable clicks after a short delay
+            const flippedCard1Index = gameState.gameCards.findIndex(c => c.id === card1.id);
+            const flippedCard2Index = gameState.gameCards.findIndex(c => c.id === card2.id);
+            gameState.gameCards[flippedCard1Index].isFlipped = false;
+            gameState.gameCards[flippedCard2Index].isFlipped = false;
+            gameState.flippedCards = [];
+            gameState.isLocked = false;
+            render();
           }, 1000);
         }
       }
     };
 
     const backToList = () => {
-      resetGame();
+      // Reset all game state variables to their initial values
+      gameState.gameCards = [];
+      gameState.flippedCards = [];
+      gameState.score = 0;
+      gameState.isLocked = false;
+      addModeSection.classList.remove('hidden');
+      playModeSection.classList.add('hidden');
+      render();
     };
 
     // --- Attach Event Listeners ---
